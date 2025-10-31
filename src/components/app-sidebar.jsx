@@ -114,8 +114,8 @@ const data = {
           icon: FolderIcon,
         },
         {
-          title: "Data enrichment",
-          url: "#",
+          title: "Search",
+          url: "/search",
           icon: SearchIcon,
         },
       ],

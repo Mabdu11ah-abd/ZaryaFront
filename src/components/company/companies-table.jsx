@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ExternalLink,
   ChevronLeft,
@@ -33,13 +33,16 @@ import {
 } from "@/components/ui/dialog";
 import { Eye, Users, Edit, Trash2 } from "lucide-react";
 import { Github, Linkedin, Twitter, Link as LinkIcon } from "lucide-react";
-import  CompanyDetailDialogue  from "./CompanyDetailDialogue";
+import CompanyDetailDialogue from "./CompanyDetailDialogue";
+import { useRouter } from "next/navigation";
+
 
 export function CompaniesTable({
   filters,
   refreshTrigger,
-  selectedCompanies ,
+  selectedCompanies,
   setSelectedCompanies,
+  onCompaniesLoaded, // optional callback to expose visible company rows to parent 
 }) {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,28 +51,52 @@ export function CompaniesTable({
   const [total, setTotal] = useState(0);
   const [viewingCompany, setViewingCompany] = useState(null);
   const pageSize = 20;
+  const router = useRouter();
+  
+  const lastFetchKeyRef = useRef(null);
 
   useEffect(() => {
+    const serializedFilters = JSON.stringify(filters || {});
+    const fetchKey = `${page}|${refreshTrigger}|${serializedFilters}`;
+
+    // Prevent duplicate fetches when deps produce the same key (also avoids double-fetch in StrictMode)
+    if (lastFetchKeyRef.current === fetchKey) return;
+    lastFetchKeyRef.current = fetchKey;
+
     const loadCompanies = async () => {
-      console.log("Fetching companies for page:", page);
+      console.log("Fetching companies for page:", page, "key:", fetchKey);
       setLoading(true);
       try {
-        console.log("Fetching companies for page:", selectedCompanies);
-        const { fetchCompanies } = await import("@/lib/mock-company-api");
-        const resp = await fetchCompanies(page, pageSize, filters || {});
-        console.log("Response received:", resp);
-        setCompanies(() => resp.data || []);
-        setTotal(resp.total || 0);
-        setTotalPages(resp.totalPages || 1);
+        // make post request
+        const resp = await fetch("http://localhost:3003/companies/search", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            page,
+            pageSize,
+            filters,
+          }),
+        });
+
+        const json = await resp.json();
+        console.log("Fetched companies json:", json);
+
+        const items = Array.isArray(json.data) ? json.data : [];
+        setCompanies(items);
+        setTotal(json?.total ?? (Array.isArray(items) ? items.length : 0));
+        setTotalPages(json?.totalPages ?? 1);
       } catch (err) {
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
+
     loadCompanies();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, filters, refreshTrigger]);
+  }, [page, refreshTrigger, JSON.stringify(filters || {})]);
 
   // Reset to first page when filters change (deep-watch)
   useEffect(() => {
@@ -78,6 +105,18 @@ export function CompaniesTable({
 
   useEffect(() => {
     console.log("Updated companies state:", companies);
+  }, [companies]);
+
+  // Notify parent of currently visible rows when they change
+  useEffect(() => {
+    try {
+      if (typeof onCompaniesLoaded === "function") {
+        onCompaniesLoaded(companies || []);
+      }
+    } catch (err) {
+      console.warn("onCompaniesLoaded callback threw:", err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companies]);
 
   const handlePreviousPage = () => {
@@ -121,6 +160,50 @@ export function CompaniesTable({
       </div>
     );
   }
+
+  const onPeopleClick = async (companyLinkedin, companyId) => {
+    // fetch new people for that company
+    const people = await fetch(`http://localhost:3004/people/find`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        companies: [
+          { companyId: companyId, companyLinkedin: companyLinkedin },
+        ],
+      }),
+    });
+
+    const peopleData = await people.json();
+    console.log("Fetched people data:", peopleData);
+
+    // save the people to local storage if available and data is valid
+    try {
+      if (
+        typeof window !== "undefined" &&
+        peopleData &&
+        Object.keys(peopleData).length > 0
+      ) {
+        localStorage.setItem(
+          "zarya:latestPeopleResults",
+          JSON.stringify(peopleData)
+        );
+        // Verify if it was set
+        const stored = localStorage.getItem("zarya:latestPeopleResults");
+        if (!stored) {
+          console.warn("People data was not saved to local storage.");
+        }
+      } else {
+        console.warn("No people data to save or localStorage unavailable.");
+      }
+    } catch (error) {
+      console.error("Error saving people data to local storage:", error);
+    }
+
+    // navigate to people page
+    router.push("/people");
+  };
 
   return (
     <div className="space-y-4">
@@ -217,13 +300,8 @@ export function CompaniesTable({
                         <Eye className="h-4 w-4" />
                       </Button>
 
-                      {/* Scrape LinkedIn */}
-                      <Button variant="ghost" size="sm" title="Scrape LinkedIn">
-                        <Linkedin className="h-4 w-4" />
-                      </Button>
-
                       {/* Scrape People */}
-                      <Button variant="ghost" size="sm" title="Scrape People">
+                      <Button variant="ghost" size="sm" title="Scrape People" onClick={() => onPeopleClick(company.linkedinUrl, company._id || company.id)}>
                         <Users className="h-4 w-4" />
                       </Button>
 

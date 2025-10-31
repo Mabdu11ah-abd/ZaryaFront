@@ -1,16 +1,32 @@
 'use client'
 import React, { useState } from 'react';
+import {useRouter} from 'next/navigation';
 import { Search } from 'lucide-react';
 
 export default function ZaryaSearch() {
   const [query, setQuery] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
+    const router = useRouter();
 
-  const handleSearch = (e) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const handleSearch = async (e) => {
     if (e.key === 'Enter' && query.trim()) {
       console.log('Searching for:', query);
       // Here you would handle the search/filter logic
-    }
+      const res = await fetch(`http://localhost:3003/companies/search?q=${encodeURIComponent(query)}`)
+      const data = await res.json();
+      console.log(data);
+
+      try {
+        // Persist latest search results so other pages (Companies) can pick them up
+        if (typeof window !== 'undefined' && data) {
+          localStorage.setItem('zarya:latestSearchResults', JSON.stringify(data));
+        }
+      } catch (err) {
+        console.warn('Failed to persist search results', err);
+      }
+      //navigate to /companies 
+      router.push('/companies');
+      }
   };
 
   return (

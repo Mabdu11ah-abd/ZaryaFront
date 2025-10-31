@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState , useEffect} from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,26 @@ import { Building2, PlusCircle, Bookmark, Database, Users } from "lucide-react";
 export default function CompaniesRevampPage() {
   const [selectedCompanies, setSelectedCompanies] = useState([]);
 
+  // On mount, try to load the latest search results persisted by the Search page
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const raw = localStorage.getItem('zarya:latestSearchResults');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const companies = parsed?.companies || parsed?.data || [];
+      const ids = Array.isArray(companies) ? companies.map((c) => c.id || c._id).filter(Boolean) : [];
+      if (ids.length > 0) {
+        setSelectedCompanies(ids);
+        console.log('Loaded selectedCompanies from search results:', ids);
+      }
+      localStorage.setItem('zarya:latestSearchResults', JSON.stringify({}));
+      
+    } catch (err) {
+      console.warn('Failed to load persisted search results', err);
+    }
+  }, []);
+
   const {
     filters,
     updateFilter,
@@ -29,13 +50,62 @@ export default function CompaniesRevampPage() {
   } = useFilters(true);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [visibleCompanies, setVisibleCompanies] = useState([]);
+  const router = useRouter();
 
   const handleApplyFilters = () => {
     setRefreshTrigger((prev) => prev + 1);
   };
 
+  const handleFindPeople = async () => {
+    if (!Array.isArray(selectedCompanies) || selectedCompanies.length === 0) {
+      return;
+    }
+
+    // Build an array of { companyId, companyLinkedin } using the visible companies
+    const companiesPayload = selectedCompanies.map((id) => {
+      const comp = visibleCompanies.find(
+        (c) => c._id === id || c.id === id
+      );
+      return {
+        companyId: id,
+        companyLinkedin: comp?.linkedinUrl || comp?.linkedin || null,
+      };
+    });
+
+    try {
+      const resp = await fetch("http://localhost:3004/people/find", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ companies: companiesPayload }),
+      });
+
+      const peopleData = await resp.json();
+      console.log("Bulk fetched people data:", peopleData);
+
+      if (typeof window !== "undefined" && peopleData) {
+        try {
+          localStorage.setItem(
+            "zarya:latestPeopleResults",
+            JSON.stringify(peopleData)
+          );
+        } catch (err) {
+          console.warn("Failed to persist people results:", err);
+        }
+      }
+
+      // Navigate to people page to view results
+      router.push("/people");
+    } catch (err) {
+      console.error("Error requesting people for selected companies:", err);
+      // Optionally show a toast here
+    }
+  };
+  
   return (
-    <>
+    <>  
       <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
@@ -56,6 +126,7 @@ export default function CompaniesRevampPage() {
                 <Button
                   variant="outline"
                   className={selectedCompanies.length === 0 ? "hidden" : ""}
+                  onClick={handleFindPeople}
                 >
                   Find People
                 </Button>
@@ -77,7 +148,7 @@ export default function CompaniesRevampPage() {
                   updateNested={updateNested}
                   resetFilters={resetFilters}
                   activeFilterCount={activeFilterCount}
-                  onApply={() => {}}
+                  onApply={handleApplyFilters}
                 />
                 <AddToListDialog
                   selectedItems={selectedCompanies}
@@ -174,6 +245,7 @@ export default function CompaniesRevampPage() {
             refreshTrigger={refreshTrigger}
             selectedCompanies={selectedCompanies}
             setSelectedCompanies={setSelectedCompanies}
+            onCompaniesLoaded={setVisibleCompanies}
           />
         </main>
       </div>

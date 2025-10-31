@@ -7,21 +7,22 @@ import { Globe, ExternalLink, Filter } from "lucide-react"
 import { listOrigins, getDomainCategory } from "./helpers"
 
 export default function Origins({ company }) {
-  const originCategories = useMemo(() => listOrigins(company.origins || []), [company.origins])
+  const originList = company?.diffbotRaw?.origins || []
+  const originCategories = useMemo(() => listOrigins(originList), [originList])
   const [selectedOriginFilter, setSelectedOriginFilter] = useState("all")
 
   const filteredOrigins = useMemo(() => {
-    if (selectedOriginFilter === "all") return company.origins || []
+    if (selectedOriginFilter === "all") return originList
     return originCategories[selectedOriginFilter] || []
-  }, [selectedOriginFilter, originCategories, company.origins])
+  }, [selectedOriginFilter, originCategories, originList])
 
   const originFilterOptions = useMemo(() => {
     const categories = Object.keys(originCategories)
     return [
-      { value: "all", label: `All (${(company.origins || []).length})`, count: (company.origins || []).length },
+      { value: "all", label: `All (${originList.length})`, count: originList.length },
       ...categories.map((category) => ({ value: category, label: `${category} (${originCategories[category].length})`, count: originCategories[category].length })),
     ]
-  }, [originCategories, company.origins])
+  }, [originCategories, originList])
 
   return (
     <div className="space-y-6">

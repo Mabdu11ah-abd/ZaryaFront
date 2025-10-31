@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import {
   Users,
   Mail,
   Search,
+  Loader2,
 } from "lucide-react"
 
 import {
@@ -28,6 +29,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 // new tab components
 import Overview from "./detail-dialogue/overview"
@@ -42,28 +45,89 @@ import { listOrigins, getDomainCategory, formatCurrency, DiffbotLink } from "./d
 
 export default function CompanyDetails({
   company,
+  onCompanyUpdate, // Optional callback to update parent component
 }) {
   const [selectedOriginFilter, setSelectedOriginFilter] = useState("all")
   const [jobCategorySearch, setJobCategorySearch] = useState("")
+  const [isEnriching, setIsEnriching] = useState(false)
+  const [enrichmentError, setEnrichmentError] = useState(null)
+  const [enrichedCompany, setEnrichedCompany] = useState(company)
+  const [isOpen, setIsOpen] = useState(false)
+
+  // Reset enriched company when company prop changes
+  useEffect(() => {
+    setEnrichedCompany(company)
+    setEnrichmentError(null)
+  }, [company])
+
+  // Enrich company data when dialog opens if not on Diffbot
+  useEffect(() => {
+    console.log("Enriching company data effect triggered");
+    const enrichCompany = async () => {
+        console.log("trying")
+        console.log('company', company)
+      if (
+        isOpen &&
+        company.linkedinUrl &&
+        (company.onDiffbot === false || company.onDiffbot === undefined)
+      ) {
+        setIsEnriching(true)
+        setEnrichmentError(null)
+        console.log("got response")
+
+        try {
+          const response = await fetch('http://localhost:3003/companies/enrich', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          linkedinUrl: company.linkedinUrl,
+        }),
+          })
+
+          if (!response.ok) {
+        throw new Error(`Enrichment failed: ${response.statusText}`)
+          }
+
+          const enrichedData = await response.json()
+          const updatedCompany = { ...company, ...enrichedData, onDiffbot: true }
+          setEnrichedCompany(updatedCompany)
+          
+          // Notify parent component of the update
+          if (onCompanyUpdate) {
+        onCompanyUpdate(updatedCompany)
+          }
+        } catch (error) {
+          console.error('Error enriching company:', error)
+          setEnrichmentError(error.message)
+        } finally {
+          setIsEnriching(false)
+        }
+      }
+    }
+
+    enrichCompany()
+  }, [isOpen, company, onCompanyUpdate])
 
   const originCategories = useMemo(() => {
-    return listOrigins(company.origins || [])
-  }, [company.origins])
+    return listOrigins(enrichedCompany.origins || [])
+  }, [enrichedCompany.origins])
 
   const filteredOrigins = useMemo(() => {
     if (selectedOriginFilter === "all") {
-      return company.origins || []
+      return enrichedCompany.origins || []
     }
     return originCategories[selectedOriginFilter] || []
-  }, [selectedOriginFilter, originCategories, company.origins])
+  }, [selectedOriginFilter, originCategories, enrichedCompany.origins])
 
   const originFilterOptions = useMemo(() => {
     const categories = Object.keys(originCategories)
     return [
       {
         value: "all",
-        label: `All (${(company.origins || []).length})`,
-        count: (company.origins || []).length,
+        label: `All (${(enrichedCompany.origins || []).length})`,
+        count: (enrichedCompany.origins || []).length,
       },
       ...categories.map((category) => ({
         value: category,
@@ -71,35 +135,56 @@ export default function CompanyDetails({
         count: originCategories[category].length,
       })),
     ]
-  }, [originCategories, company.origins])
+  }, [originCategories, enrichedCompany.origins])
 
   const filteredJobCategories = useMemo(() => {
-    if (!company.employeeCategories) return []
+    if (!enrichedCompany.employeeCategories) return []
 
-    return company.employeeCategories.filter((category) =>
+    return enrichedCompany.employeeCategories.filter((category) =>
       category.category.toLowerCase().includes(jobCategorySearch.toLowerCase()),
     )
-  }, [company.employeeCategories, jobCategorySearch])
+  }, [enrichedCompany.employeeCategories, jobCategorySearch])
 
   return (
-    <Dialog>
-      {/* NOTE: In a real app, this trigger would likely be in the parent component 
-        that renders the CompanyDetails dialog, but it's included here for completeness.
-      */}
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">View Company Details</Button>
       </DialogTrigger>
 
       <DialogContent className="bg-background sm:max-w-[1200px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          {/* Use the company name as the title */}
-          <DialogTitle>{company.name || "Company Details"}</DialogTitle>
+          <DialogTitle>{enrichedCompany.name || "Company Details"}</DialogTitle>
           <DialogDescription>
             Comprehensive data and insights for this organization.
           </DialogDescription>
         </DialogHeader>
 
-        {/* Existing CompanyDetails content moved inside DialogContent */}
+        {/* Enrichment Status */}
+        {isEnriching && (
+          <Alert className="mb-4">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <AlertDescription className="ml-2">
+              Enriching company data from Diffbot... This may take a moment.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {enrichmentError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>
+              Failed to enrich company data: {enrichmentError}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!company.linkedinUrl && company.onDiffbot === false && (
+          <Alert className="mb-4">
+            <AlertDescription>
+              LinkedIn URL is required to enrich company data.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="w-full bg-white rounded-lg shadow-sm">
           <Tabs
             defaultValue="overview"
@@ -108,7 +193,7 @@ export default function CompanyDetails({
               // Add any necessary logic for tab change here
             }}
           >
-            <TabsList className=" bg-background grid w-full grid-cols-8  sticky top-0 z-10">
+            <TabsList className="bg-background grid w-full grid-cols-8 sticky top-0 z-10">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <Building className="h-4 w-4" />
                 Overview
@@ -119,11 +204,11 @@ export default function CompanyDetails({
               </TabsTrigger>
               <TabsTrigger value="customers" className="flex items-center gap-2">
                 <Building className="h-4 w-4" />
-                Customers ({company.customers?.length || 0})
+                Customers ({enrichedCompany.customers?.length || 0})
               </TabsTrigger>
               <TabsTrigger value="origins" className="flex items-center gap-2">
                 <Globe className="h-4 w-4" />
-                Origins ({(company.origins || []).length})
+                Origins ({(enrichedCompany.origins || []).length})
               </TabsTrigger>
               <TabsTrigger value="contact" className="flex items-center gap-2">
                 <Phone className="h-4 w-4" />
@@ -131,35 +216,34 @@ export default function CompanyDetails({
               </TabsTrigger>
               <TabsTrigger value="job-categories" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                Job Categories ({company.employeeCategories?.length || 0})
+                Job Categories ({enrichedCompany.employeeCategories?.length || 0})
               </TabsTrigger>
-              <TabsTrigger value="employees"  className="flex items-center gap-2">
+              <TabsTrigger value="employees" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Employees
-                {company.hasEmployees && <Badge className="bg-green-100 text-green-800 text-xs ml-1">✓</Badge>}
+                {enrichedCompany.hasEmployees && <Badge className="bg-green-100 text-green-800 text-xs ml-1">✓</Badge>}
               </TabsTrigger>
-              <TabsTrigger value="emails"  className="flex items-center gap-2">
+              <TabsTrigger value="emails" className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
                 Emails
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6 p-6">
-              <Overview company={company} />
+              <Overview company={enrichedCompany} />
             </TabsContent>
 
             <TabsContent value="leadership" className="space-y-6 p-6">
-              <Leadership company={company} />
+              <Leadership company={enrichedCompany} />
             </TabsContent>
 
             <TabsContent value="customers" className="p-6">
-              <Customers company={company} />
+              <Customers company={enrichedCompany} />
             </TabsContent>
 
             <TabsContent value="origins" className="p-6">
-              {/* Added the Origins component back in, which was commented out in your original code */}
               <Origins
-                company={company}
+                company={enrichedCompany}
                 originFilterOptions={originFilterOptions}
                 selectedOriginFilter={selectedOriginFilter}
                 setSelectedOriginFilter={setSelectedOriginFilter}
@@ -170,12 +254,12 @@ export default function CompanyDetails({
             </TabsContent>
 
             <TabsContent value="contact" className="space-y-6 p-6">
-              <Contact company={company} />
+              <Contact company={enrichedCompany} />
             </TabsContent>
 
             <TabsContent value="job-categories" className="p-6">
               <JobCategories
-                company={company}
+                company={enrichedCompany}
                 jobCategorySearch={jobCategorySearch}
                 setJobCategorySearch={setJobCategorySearch}
                 filteredJobCategories={filteredJobCategories}
@@ -184,16 +268,15 @@ export default function CompanyDetails({
             </TabsContent>
 
             <TabsContent value="employees" className="p-6">
-              <Employees company={company} />
+              <Employees company={enrichedCompany} />
             </TabsContent>
 
             <TabsContent value="emails" className="p-6">
-              <Emails company={company} />
+              <Emails company={enrichedCompany} />
             </TabsContent>
           </Tabs>
         </div>
         
-        {/* Optional footer for dialog, e.g., a close button */}
         <DialogFooter>
           {/* You can add a button here, but the dialog typically closes when clicking outside or pressing ESC */}
         </DialogFooter>

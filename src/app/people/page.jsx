@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Users } from "lucide-react";
 import { useFilters } from "@/hooks/use-filter";
 import { FilterDialog } from "@/components/people/filter-dialog";
@@ -26,7 +26,29 @@ export default function PeoplePage() {
     activeFilterCount,
   } = useFilters(true);
   const [selectedPeople, setSelectedPeople] = useState([]);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);  
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  useEffect(() => {
+    // Load selected people from localStorage (saved by CompaniesTable) and
+    // normalize to an array of person IDs so PeopleTable's selection works.
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('zarya:latestPeopleResults') : null;
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      console.log('Loaded selectedPeople from persisted results:', parsed);
+
+      // parsed may be an array of person objects; extract ids
+      const ids = Array.isArray(parsed) ? parsed.map((p) => p.id || p._id).filter(Boolean) : [];
+      if (ids.length > 0) {
+        setSelectedPeople(ids);
+        console.log('Set selectedPeople to ids:', ids);
+      }
+
+      // remove the persisted payload after importing
+      localStorage.removeItem('zarya:latestPeopleResults');
+    } catch (err) {
+      console.warn('Failed to load persisted people results', err);
+    }
+  }, []);
 
   const handleApplyFilters = () => {
     setRefreshTrigger((prev) => prev + 1);
@@ -57,7 +79,9 @@ export default function PeoplePage() {
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="start">
-                  <DropdownMenuItem onClick={() => alert("Feature coming soon!")}>
+                  <DropdownMenuItem
+                    onClick={() => alert("Feature coming soon!")}
+                  >
                     Start from Scratch
                   </DropdownMenuItem>
                 </DropdownMenuContent>

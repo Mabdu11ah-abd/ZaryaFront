@@ -33,15 +33,29 @@ export function PeopleTable({ filters, refreshTrigger, selectedPeople, setSelect
   useEffect(() => {
     const loadPeople = async () => {
       setLoading(true);
-      const response = await fetchPeople(page, pageSize, filters);
-      setPeople(response.data);
-      setTotalPages(response.totalPages);
-      setTotal(response.total);
+      const response = await fetch("http://localhost:3004/people/list-with-filters", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ page, pageSize, filters }),
+      });
+
+      console.log("Fetching people with filters:", { page, pageSize, filters });
+      
+      const data = await response.json();
+      console.log("Fetched people data:", data);
+
+      const items = Array.isArray(data.data) ? data.data : [];
+      setPeople(items);
+      setTotal(data?.total ?? (Array.isArray(items) ? items.length : 0));
+      setTotalPages(data?.totalPages ?? 1);
+
       setLoading(false);
     };
 
     loadPeople();
-  }, [page, filters, refreshTrigger]);
+  }, []);
 
   const handlePreviousPage = () => {
     if (page > 1) setPage(page - 1);
@@ -120,7 +134,7 @@ export function PeopleTable({ filters, refreshTrigger, selectedPeople, setSelect
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="font-medium">
-                        {person.firstName} {person.lastName}
+                        {person.fullName}
                       </span>
                       {person.description && (
                         <span className="text-xs text-muted-foreground line-clamp-1">
@@ -131,7 +145,7 @@ export function PeopleTable({ filters, refreshTrigger, selectedPeople, setSelect
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {person.role.slice(0, 2).map((role, idx) => (
+                      {person.roles.slice(0, 2).map((role, idx) => (
                         <Badge
                           key={idx}
                           variant="secondary"
@@ -140,7 +154,7 @@ export function PeopleTable({ filters, refreshTrigger, selectedPeople, setSelect
                           {role}
                         </Badge>
                       ))}
-                      {person.role.length > 2 && (
+                      {person.roles.length > 2 && (
                         <Badge variant="outline" className="text-xs">
                           +{person.role.length - 2}
                         </Badge>
@@ -149,12 +163,7 @@ export function PeopleTable({ filters, refreshTrigger, selectedPeople, setSelect
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-medium">{person.company.name}</span>
-                      {person.company.domain && (
-                        <span className="text-xs text-muted-foreground">
-                          {person.company.domain}
-                        </span>
-                      )}
+                      <span className="font-medium">{person.companySlug ? person.companySlug : "N/A"}</span>
                     </div>
                   </TableCell>
                   <TableCell>
