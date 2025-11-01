@@ -81,7 +81,7 @@ export function CompaniesTable({
         });
 
         const json = await resp.json();
-        console.log("Fetched companies json:", json);
+        console.log("Fetched companies json:", json.data);
 
         const items = Array.isArray(json.data) ? json.data : [];
         setCompanies(items);

@@ -134,7 +134,7 @@ export function PeopleTable({ filters, refreshTrigger, selectedPeople, setSelect
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="font-medium">
-                        {person.fullName}
+                        {person.firstName} {person.lastName}
                       </span>
                       {person.description && (
                         <span className="text-xs text-muted-foreground line-clamp-1">
@@ -163,7 +163,7 @@ export function PeopleTable({ filters, refreshTrigger, selectedPeople, setSelect
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-medium">{person.companySlug ? person.companySlug : "N/A"}</span>
+                      <span className="font-medium">{person.company.name ? person.company.name : "N/A"}</span>
                     </div>
                   </TableCell>
                   <TableCell>

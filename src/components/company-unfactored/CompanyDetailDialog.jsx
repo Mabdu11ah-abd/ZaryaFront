@@ -31,7 +31,7 @@ function formatCurrency(value) {
 
 // Enhanced listOrigins function
 function listOrigins(origins) {
-  if (!Array.isArray(origins)) return []
+  if (!Array.isArray(origins)) return []  
   const originMap = {}
 
   origins.forEach((origin) => {
@@ -121,9 +121,13 @@ export default function CompanyDetails({
   const filteredJobCategories = useMemo(() => {
     if (!company.employeeCategories) return []
 
-    return company.employeeCategories.filter((category) =>
-      category.category.toLowerCase().includes(jobCategorySearch.toLowerCase()),
-    )
+    return company.employeeCategories.filter((category) => {
+      const label =
+        typeof category.category === "string"
+          ? category.category
+          : category.category?.name || category.category?.label || ""
+      return label.toLowerCase().includes(jobCategorySearch.toLowerCase())
+    })
   }, [company.employeeCategories, jobCategorySearch])
 
   return (
@@ -152,7 +156,7 @@ export default function CompanyDetails({
           <TabsTrigger value="origins" className="flex items-center gap-2">
             <Globe className="h-4 w-4" />
             Origins ({(company.origins || []).length})
-          </TabsTrigger>
+          </TabsTrigger>  
           <TabsTrigger value="contact" className="flex items-center gap-2">
             <Phone className="h-4 w-4" />
             Contact

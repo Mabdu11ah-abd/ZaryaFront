@@ -10,9 +10,15 @@ export default function JobCategories({ company }) {
 
   const filteredJobCategories = useMemo(() => {
     if (!company.employeeCategories) return []
-    return company.employeeCategories.filter((category) =>
-      category.category.toLowerCase().includes(jobCategorySearch.toLowerCase()),
-    )
+
+    return company.employeeCategories.filter((category) => {
+      // category.category can be either a string or an object like { name: '...' }
+      const label =
+        typeof category.category === "string"
+          ? category.category
+          : category.category?.name || category.category?.label || ""
+      return label.toLowerCase().includes(jobCategorySearch.toLowerCase())
+    })
   }, [company.employeeCategories, jobCategorySearch])
 
   return (
@@ -30,25 +36,32 @@ export default function JobCategories({ company }) {
       {filteredJobCategories.length > 0 ? (
         <div className="space-y-4">
           <div className="max-h-96 overflow-y-auto space-y-3 pr-2">
-            {filteredJobCategories.map((category, index) => (
-              <div key={index} className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h5 className="font-semibold text-gray-900 mb-2">{category.category}</h5>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span className="flex items-center gap-1">
-                        <Users className="h-4 w-4" />
-                        {category.nbEmployees} employees
-                      </span>
-                      {category.firstHireDate && (
-                        <span>First hired: {new Date(category.firstHireDate.timestamp * 1000).toLocaleDateString()}</span>
-                      )}
+            {filteredJobCategories.map((category, index) => {
+              const label =
+                typeof category.category === "string"
+                  ? category.category
+                  : category.category?.name || category.category?.label || "Unknown"
+              const nb = category.nbEmployees || 0
+              return (
+                <div key={index} className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h5 className="font-semibold text-gray-900 mb-2">{label}</h5>
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <span className="flex items-center gap-1">
+                          <Users className="h-4 w-4" />
+                          {nb} employees
+                        </span>
+                        {category.firstHireDate && (
+                          <span>First hired: {new Date(category.firstHireDate.timestamp * 1000).toLocaleDateString()}</span>
+                        )}
+                      </div>
                     </div>
+                    <Badge variant="secondary" className="text-xs">{nb} people</Badge>
                   </div>
-                  <Badge variant="secondary" className="text-xs">{category.nbEmployees} people</Badge>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       ) : company.employeeCategories?.length === 0 ? (

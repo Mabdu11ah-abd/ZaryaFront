@@ -66,11 +66,13 @@ export default function CompanyDetails({
     const enrichCompany = async () => {
         console.log("trying")
         console.log('company', company)
+        console.log(company.onDiffbot, isOpen)
       if (
         isOpen &&
         company.linkedinUrl &&
-        (company.onDiffbot === false || company.onDiffbot === undefined)
+        (company.onDiffbot === false || company.onDiffbot === null)
       ) {
+        console.log("enriching...")
         setIsEnriching(true)
         setEnrichmentError(null)
         console.log("got response")
@@ -140,9 +142,13 @@ export default function CompanyDetails({
   const filteredJobCategories = useMemo(() => {
     if (!enrichedCompany.employeeCategories) return []
 
-    return enrichedCompany.employeeCategories.filter((category) =>
-      category.category.toLowerCase().includes(jobCategorySearch.toLowerCase()),
-    )
+    return enrichedCompany.employeeCategories.filter((category) => {
+      const label =
+        typeof category.category === "string"
+          ? category.category
+          : category.category?.name || category.category?.label || ""
+      return label.toLowerCase().includes(jobCategorySearch.toLowerCase())
+    })
   }, [enrichedCompany.employeeCategories, jobCategorySearch])
 
   return (

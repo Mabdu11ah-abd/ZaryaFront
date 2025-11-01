@@ -13,7 +13,7 @@ const getInitialFilters = () => ({
   homepageUri: "",
   angellistUri: "",
   crunchbaseUri: "",
-  githubUri: "",
+  githubUri: "",  
   facebookUri: "",
   diffbotUri: "",
   targetDiffbotId: "",
@@ -97,7 +97,7 @@ const getInitialFilters = () => ({
   sortOrder: "desc",
 
   // filter by collection
-  collectionId: "",
+  collectionId: "", 
 })
 
 // ✅ Step 2: Build the hook
