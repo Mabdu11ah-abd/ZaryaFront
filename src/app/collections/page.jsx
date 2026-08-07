@@ -11,19 +11,28 @@ import Link from "next/link"
 import { Input } from "@/components/ui/input"
 
 export default function CollectionsPage() {
-  const [collections, setCollections] = useState([])
+  const [peopleCollections, setPeopleCollections] = useState([])
+  const [companyCollections, setCompanyCollections] = useState([])
   const [loading, setLoading] = useState(true)
   const [peopleQuery, setPeopleQuery] = useState("")
   const [companyQuery, setCompanyQuery] = useState("")
-
+  const baseapiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4001"
   useEffect(() => {
-    const loadCollections = async () => {
-      const data = await fetchCollections()
-      setCollections(data)
-      setLoading(false)
+    const loadPeopleCollections = async () => {
+      const response = await fetch(`${baseapiUrl}/lists?type=PEOPLE_LIST`)
+      const data = await response.json()
+      setPeopleCollections(data)
     }
 
-    loadCollections()
+    const loadCompanyCollections = async () => {
+      const response = await fetch(`${baseapiUrl}/lists?type=COMPANY_LIST`)
+      const data = await response.json()
+      setCompanyCollections(data)
+    }
+
+    loadPeopleCollections()
+    loadCompanyCollections()
+    setLoading(false)
   }, [])
 
   const formatDate = (date) => {
@@ -33,13 +42,6 @@ export default function CollectionsPage() {
       year: "numeric",
     })
   }
-
-  const peopleCollections = collections
-    .filter((c) => c.type === "people")
-    .filter((c) => c.name.toLowerCase().includes(peopleQuery.toLowerCase().trim()))
-  const companyCollections = collections
-    .filter((c) => c.type === "company")
-    .filter((c) => c.name.toLowerCase().includes(companyQuery.toLowerCase().trim()))
 
   if (loading) {
     return (
@@ -76,7 +78,7 @@ export default function CollectionsPage() {
 
       {/* Collections Sections */}
       <div className="max-w-7xl mx-auto p-8 space-y-12">
-        {collections.length === 0 ? (
+        {peopleCollections.length === 0 && companyCollections.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <FolderOpen className="h-16 w-16 text-muted-foreground mb-4" />
