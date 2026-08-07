@@ -18,70 +18,57 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 // Mock function to simulate fetching collections with membership info
+// const fetchCollectionsWithMembership = async (type, selectedIds) => {
+//   // Simulate API delay
+//   await new Promise((resolve) => setTimeout(resolve, 500));
+
+//   // Mock data for existing lists
+//   const mockLists = type === "companies"
+//     ? [
+//         { id: "list-1", name: "Sales Q4 Targets", itemCount: 45 },
+//         { id: "list-2", name: "Hot Leads", itemCount: 23 },
+//         { id: "list-3", name: "Marketing Prospects", itemCount: 67 },
+//         { id: "list-4", name: "Cold Outreach", itemCount: 89 },
+//       ]
+//     : [
+//         { id: "list-1", name: "Key Decision Makers", itemCount: 34 },
+//         { id: "list-2", name: "Engineering Contacts", itemCount: 56 },
+//         { id: "list-3", name: "C-Suite Prospects", itemCount: 12 },
+//         { id: "list-4", name: "Follow-up Queue", itemCount: 78 },
+//       ];
+
+//   return mockLists;
+// };
+
+const baseapiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4001";
 const fetchCollectionsWithMembership = async (type, selectedIds) => {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  // Mock data for existing lists
-  const mockLists = type === "companies" 
-    ? [
-        { id: "list-1", name: "Sales Q4 Targets", itemCount: 45 },
-        { id: "list-2", name: "Hot Leads", itemCount: 23 },
-        { id: "list-3", name: "Marketing Prospects", itemCount: 67 },
-        { id: "list-4", name: "Cold Outreach", itemCount: 89 },
-      ]
-    : [
-        { id: "list-1", name: "Key Decision Makers", itemCount: 34 },
-        { id: "list-2", name: "Engineering Contacts", itemCount: 56 },
-        { id: "list-3", name: "C-Suite Prospects", itemCount: 12 },
-        { id: "list-4", name: "Follow-up Queue", itemCount: 78 },
-      ];
-
-  return mockLists;
+  if (type === "companies") {
+      const response = await fetch(`${baseapiUrl}/lists?type=COMPANY_LIST`)
+    const data = await response.json();
+    return data;
+  } else {
+    const response = await fetch(`${baseapiUrl}/lists?type=PEOPLE_LIST`);
+    const data = await response.json();
+    return data;
+  }
 };
 
 // Mock function to get existing memberships for selected items
 const getItemMemberships = async (type, selectedIds) => {
-  await new Promise((resolve) => setTimeout(resolve, 400));
+  // is company boolean
+  const isCompany = type === "companies" || type === "company";
+  console.log("Fetching memberships for", isCompany ? "companies" : "people", selectedIds);
+  // promise of an array of lists
+  const promises = selectedIds.map(async (id) => {
+    const url = isCompany ? `/companies/${id}/lists` : `/people/${id}/lists`; // construct url based on is company
+    const res = await fetch(url);
+    if (!res.ok) return { id, existingLists: [] };
+    const lists = await res.json();
+    // expecting array of lists
+    return { id, existingLists: Array.isArray(lists) ? lists : [] };
+  });
 
-  // Mock membership data
-  if (type === "companies") {
-    return selectedIds.map((id, idx) => {
-      if (idx === 0) {
-        return {
-          id,
-          existingLists: [
-            { id: "list-1", name: "Sales Q4 Targets" },
-            { id: "list-2", name: "Hot Leads" },
-          ],
-        };
-      } else if (idx === 1) {
-        return {
-          id,
-          existingLists: [{ id: "list-3", name: "Marketing Prospects" }],
-        };
-      }
-      return { id, existingLists: [] };
-    });
-  } else {
-    return selectedIds.map((id, idx) => {
-      if (idx === 0) {
-        return {
-          id,
-          existingLists: [
-            { id: "list-1", name: "Key Decision Makers" },
-            { id: "list-3", name: "C-Suite Prospects" },
-          ],
-        };
-      } else if (idx === 2) {
-        return {
-          id,
-          existingLists: [{ id: "list-4", name: "Follow-up Queue" }],
-        };
-      }
-      return { id, existingLists: [] };
-    });
-  }
+  return Promise.all(promises);
 };
 
 export function AddToListDialog({
@@ -110,7 +97,10 @@ export function AddToListDialog({
     if (isCompany) {
       return item.name || item.fullName || "Unknown Company";
     }
-    return `${item.firstName || ""} ${item.lastName || ""}`.trim() || "Unknown Person";
+    return (
+      `${item.firstName || ""} ${item.lastName || ""}`.trim() ||
+      "Unknown Person"
+    );
   };
 
   const openDialog = async (next) => {
@@ -118,12 +108,13 @@ export function AddToListDialog({
     if (next) {
       setLoading(true);
       try {
-        const selectedIds = selected.map((item) => item._id || item.id);
-        
+        console.log("in open dialog selected is  ")
+        console.log(selected)
+
         // Fetch both collections and membership info
         const [cols, memberships] = await Promise.all([
-          fetchCollectionsWithMembership(type, selectedIds),
-          getItemMemberships(type, selectedIds),
+          fetchCollectionsWithMembership(type, selected),
+          getItemMemberships(type, selected),
         ]);
 
         setCollections(cols);
@@ -137,26 +128,81 @@ export function AddToListDialog({
     }
   };
 
-  const handleAdd = () => {
-    if (creatingNew) {
-      if (!newListName.trim()) {
-        alert("Please provide a name for the new list");
+  const handleAdd = async () => {
+    setLoading(true);
+    try {
+      // Creating a new list (create + add items)
+      if (creatingNew) {
+        if (!newListName.trim()) {
+          alert("Please provide a name for the new list");
+          setLoading(false);
+          return;
+        }
+        console.log("Creating new list:", newListName);
+        console.log("selected items:", selected);
+        const response = await fetch("http://localhost:4001/lists/createwithitems", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: newListName,
+            type: isCompany ? "COMPANY_LIST" : "PEOPLE_LIST",
+            items: selected,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to create new list");
+        }
+
+        // created successfully — close dialog and reset creation state
+        setOpen(false);
+        setNewListName("");
+        setCreatingNew(false);
         return;
       }
-      console.log("Create new list", newListName, "and add", selected);
+
+      // Adding to an existing list
+      if (!selectedCollection) {
+        alert("Select a list to add to");
+        setLoading(false);
+        return;
+      }
+
+      const ids = selected.map((item) => item._id || item.id).filter(Boolean);
+      if (ids.length === 0) {
+        alert("No items selected to add");
+        setLoading(false);
+        return;
+      }
+
+      const endpoint = `http://localhost:4001/lists/${selectedCollection}/${
+        isCompany ? "companies" : "people"
+      }`;
+
+      const payload = isCompany
+        ? { companyIds: ids, items: ids }
+        : { personIds: ids, items: ids };
+
+      const addRes = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!addRes.ok) {
+        throw new Error("Failed to add items to list");
+      }
+
+      // success
       setOpen(false);
-      setNewListName("");
-      setCreatingNew(false);
-      return;
+    } catch (err) {
+      console.error("Error adding to list:", err);
+      alert("Error adding to list");
+    } finally {
+      setLoading(false);
     }
-
-    if (!selectedCollection) {
-      alert("Select a list to add to");
-      return;
-    }
-
-    console.log("Add to collection", selectedCollection, selected);
-    setOpen(false);
   };
 
   // Calculate duplicates per list
@@ -186,7 +232,8 @@ export function AddToListDialog({
       <DialogContent className="w-[6    0vw] max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="text-xl">
-            Add {itemPlural.charAt(0).toUpperCase() + itemPlural.slice(1)} to List
+            Add {itemPlural.charAt(0).toUpperCase() + itemPlural.slice(1)} to
+            List
           </DialogTitle>
           <DialogDescription>
             Review selected {itemPlural} and choose a list to add them to.
@@ -202,7 +249,9 @@ export function AddToListDialog({
                 className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors"
               >
                 <span className="text-sm font-medium">
-                  Selected {itemPlural.charAt(0).toUpperCase() + itemPlural.slice(1)} ({selected.length})
+                  Selected{" "}
+                  {itemPlural.charAt(0).toUpperCase() + itemPlural.slice(1)} (
+                  {selected.length})
                 </span>
                 {previewExpanded ? (
                   <ChevronUp className="h-4 w-4" />
@@ -214,7 +263,9 @@ export function AddToListDialog({
               {previewExpanded && (
                 <div className="p-3 space-y-3">
                   {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading memberships...</p>
+                    <p className="text-sm text-muted-foreground">
+                      Loading memberships...
+                    </p>
                   ) : (
                     selected.map((item, idx) => {
                       const membership = itemMemberships.find(
@@ -275,7 +326,9 @@ export function AddToListDialog({
               />
 
               {loading ? (
-                <p className="text-sm text-muted-foreground">Loading lists...</p>
+                <p className="text-sm text-muted-foreground">
+                  Loading lists...
+                </p>
               ) : (
                 <RadioGroup
                   value={selectedCollection}
@@ -295,7 +348,8 @@ export function AddToListDialog({
                             <div className="font-medium">{col.name}</div>
                             {duplicates > 0 && (
                               <Badge variant="outline" className="text-xs">
-                                {duplicates} duplicate{duplicates > 1 ? "s" : ""}
+                                {duplicates} duplicate
+                                {duplicates > 1 ? "s" : ""}
                               </Badge>
                             )}
                           </div>

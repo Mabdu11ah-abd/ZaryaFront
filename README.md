@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Zarya Lead Finder
+
+Zarya is a lead-prospecting web app built with Next.js. It is designed to help teams discover people and companies, enrich contact data, save results into collections, and organize outreach campaigns. The product surface is similar to Apollo-style sales intelligence tools, with a focus on finding prospects, filtering them, and moving them into outreach workflows.
+
+## What The App Does
+
+- Search for companies and pivot those results into the companies workspace.
+- Browse and filter people leads by role, tags, company, employee range, and location.
+- Scrape new leads from a company prompt and optional target roles.
+- View person detail pages with role, tags, LinkedIn links, email status, and company information.
+- Browse company detail data including domains, employee counts, revenue, categories, technologies, origins, customers, and contact details.
+- Save people and companies into collections for later use.
+- Search companies with autocomplete-style suggestions and hand results off to the companies page.
+- Build and manage outreach campaigns with multi-step email sequences, including template and AI-generated steps.
+- Find people for selected companies and move those leads into the people workspace.
+
+## Stack
+
+- Next.js 15 with the App Router
+- React 19
+- Tailwind CSS 4
+- Radix UI primitives
+- Lucide icons
+- SWR for data loading and cache updates
+- Sonner for toast notifications
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and start the dev server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Available Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev` - start the development server with Turbopack
+- `npm run build` - create a production build
+- `npm run start` - run the production server
+- `npm run lint` - run ESLint
+
+## Project Structure
+
+- `src/app` - route pages for people, companies, collections, campaigns, search, login, and signup
+- `src/components` - shared UI and feature components
+- `src/lib/mock-api.js` - mocked people, collections, and campaign data for the demo experience
+- `src/lib/mock-company-api.js` - mocked company search and detail data
+- `src/hooks` - reusable client-side hooks
+
+## Notes
+
+- Several screens are wired to local or mocked data sources so the product can be explored without a full backend.
+- Some flows persist results in `localStorage` so one workspace can hand off data to another, such as search results into companies and company matches into people.
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project uses the Next.js App Router and standard Next.js deployment patterns. For framework documentation, see the Next.js docs at https://nextjs.org/docs.
